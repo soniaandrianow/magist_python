@@ -6,48 +6,30 @@ import numpy as np
 from Helper import Helper
 import random
 import math
+from Helper import Helper
 
 conn = pymysql.connect(host='localhost', port=3306, user='root', passwd='', db='small_rekomendacyjny')
 cur = conn.cursor()
-cur.execute("SELECT * FROM help WHERE correct = 1 AND checked is NULL ORDER BY RAND() LIMIT 100")
-
-file = open('files/train.txt', 'r')
-file2 = open('files/labels.txt', 'r')
-lines = file.readlines()
-train = []
-for line in lines:
-    train.append(np.fromstring(line, dtype=float, count=3, sep=';'))
-lines2 = file2.readlines()
-labels = []
-for line in lines2:
-    labels.append(line.strip('\n'))
-
-clf = sklearn.svm.SVC(decision_function_shape='ovr')
-clf.fit(train, labels)
-print(clf)
+cur.execute("SELECT * FROM help WHERE correct = 1 "
+            "AND movie_id not in (1, 4, 5, 7, 8, 19, 22, 26, 28, 30, 31, 32, 36, 37, 46, 47) "
+            "AND checked is NULL ORDER BY RAND() LIMIT 30")
 
 for row in cur:
-    vector = [Helper.prepare_vector(mov_id=row[1], us_id=row[0], rat=float(row[2]))]
-    predicted = clf.predict(vector)
-    predicted = float(predicted[0])
-    print(predicted)
-    if predicted:
-        add = random.randint(0, 1)
-        if 5.0 - predicted <= 2.0:
-            value = 2.0
-        else:
-            value = random.randint(2, 5.0 - math.ceil(predicted))
-        if add == 1:
-            new = predicted + value
-            if new > 5.0:
-                new = predicted - value
-        else :
-            new = predicted - value
-            if new < 0.5:
-                new = predicted + value
+    add = random.randint(0, 1)
+    if 10.0 - float(row[2]) <= 4.0:
+        value = 4.0
+    else:
+        value = float(random.randint(4, 10.0 - float(row[2])))
+    if add == 1:
+        new = float(row[2]) + value
+        if new > 10.0:
+            new = float(row[2]) - value
+    else:
+        new = float(row[2]) - value
+        if new < 1:
+            new = float(row[2]) + value
     new_curr = conn.cursor()
-    new_curr.execute("UPDATE help SET rating=%s, correct = 0 where user_id = %s AND movie_id = %s", [new, row[0], row[1]])
+    print('stara: ' + str(float(row[2])) + ' nowa: ' + str(new))
+    new_curr.execute("UPDATE help SET rating=%s, correct = 0 WHERE user_id = %s AND movie_id = %s", [new, row[0], row[1]])
 conn.commit()
 
-file.close()
-file2.close()
